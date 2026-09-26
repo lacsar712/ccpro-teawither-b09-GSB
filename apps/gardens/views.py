@@ -14,6 +14,7 @@ from django.views.generic import (
 
 from .forms import GardenForm, TroughForm, WitherBatchForm
 from .models import Garden, Trough, WitherBatch
+from . import stats
 
 
 def _wants_htmx(request):
@@ -22,10 +23,31 @@ def _wants_htmx(request):
 
 @login_required
 def home(request):
+    """工作台。
+
+    带 ``?band=<海拔带>`` 时按海拔带 **精确** 筛选，三张对照卡与按园
+    汇总表都只算该带；不带参数时为全库口径。
+
+    整页访问与 HTMX 局部刷新共用同一个模板片段
+    （``home/_band_panel.html``）和同一份 ``band_summary`` 数据，
+    切换带后两种口径必然一致。
+    """
+    band = request.GET.get("band", "").strip()
+    summary = stats.band_summary(band)
+    bands = stats.altitude_bands()
+
+    if _wants_htmx(request):
+        html = render_to_string(
+            "home/_band_panel.html",
+            {"summary": summary, "bands": bands},
+            request=request,
+        )
+        return HttpResponse(html)
+
     context = {
-        "garden_count": Garden.objects.count(),
-        "trough_count": Trough.objects.count(),
-        "batch_count": WitherBatch.objects.count(),
+        "summary": summary,
+        "bands": bands,
+        # 全库状态卡仍保留（与海拔带无关）
         "ready_count": Trough.objects.filter(status=Trough.STATUS_READY).count(),
         "withering_count": Trough.objects.filter(
             status=Trough.STATUS_WITHERING
@@ -44,6 +66,18 @@ class GardenListView(LoginRequiredMixin, ListView):
     model = Garden
     template_name = "gardens/list.html"
     context_object_name = "gardens"
+
+    def get_queryset(self):
+        # 海拔带精确筛选；与首页三卡共用 stats.gardens_in_band。
+        band = self.request.GET.get("band", "").strip()
+        self.selected_band = band
+        return stats.gardens_in_band(band or None)
+
+    def get_context_data(self, **kwargs):
+        context = super().get_context_data(**kwargs)
+        context["bands"] = stats.altitude_bands()
+        context["selected_band"] = self.selected_band
+        return context
 
     def get(self, request, *args, **kwargs):
         self.object_list = self.get_queryset()
@@ -101,7 +135,24 @@ class TroughListView(LoginRequiredMixin, ListView):
     context_object_name = "troughs"
 
     def get_queryset(self):
-        return Trough.objects.select_related("garden").all()
+        # 按茶园筛选，复用首页槽总数的同源函数：同一查询集构造，
+        # 禁止首页一套 SQL、列表另一套。
+        garden_id = self.request.GET.get("garden", "").strip()
+        self.selected_garden_id = garden_id
+        gardens = Garden.objects.all()
+        if garden_id.isdigit():
+            gardens = gardens.filter(pk=int(garden_id))
+            self.selected_garden = gardens.first()
+        else:
+            self.selected_garden = None
+        return stats.troughs_for_gardens(gardens).select_related("garden")
+
+    def get_context_data(self, **kwargs):
+        context = super().get_context_data(**kwargs)
+        context["gardens"] = Garden.objects.order_by("name")
+        context["selected_garden"] = self.selected_garden
+        context["selected_garden_id"] = self.selected_garden_id
+        return context
 
     def get(self, request, *args, **kwargs):
         self.object_list = self.get_queryset()

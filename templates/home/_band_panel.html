@@ -1,0 +1,77 @@
+{# 首页海拔带面板：整页渲染与 HTMX 局部刷新共用本片段，保证口径一致。 #}
+<div id="band-panel">
+  <div class="card" style="margin-bottom:1rem">
+    <form method="get"
+          action="{% url 'home' %}"
+          hx-get="{% url 'home' %}"
+          hx-target="#band-panel"
+          hx-swap="outerHTML"
+          hx-trigger="change from:select">
+      <div class="form-row" style="max-width:none">
+        <label for="band-select">海拔带（精确匹配）</label>
+        <select id="band-select" name="band" class="input" style="max-width:280px">
+          <option value=""{% if not summary.has_filter %} selected{% endif %}>全部海拔带（全库）</option>
+          {% for b in bands %}
+          <option value="{{ b }}"{% if b == summary.selected_band %} selected{% endif %}>{{ b }}</option>
+          {% endfor %}
+        </select>
+        <noscript><button type="submit" class="btn btn-sm btn-secondary" style="margin-top:.5rem">应用筛选</button></noscript>
+      </div>
+    </form>
+  </div>
+
+  <div class="stats">
+    <div class="stat">
+      <div class="num">{{ summary.garden_count }}</div>
+      <div class="label">该带茶园数</div>
+      <div class="label" style="font-size:.78rem">＝筛选后茶园列表行数</div>
+    </div>
+    <div class="stat">
+      <div class="num">{{ summary.trough_count }}</div>
+      <div class="label">这些园下槽总数</div>
+      <div class="label" style="font-size:.78rem">＝按园汇总槽行数合计</div>
+    </div>
+    <div class="stat">
+      <div class="num">{{ summary.batch_count }}</div>
+      <div class="label">这些园下批次总数</div>
+      <div class="label" style="font-size:.78rem">＝按园汇总批次行数合计</div>
+    </div>
+  </div>
+
+  <h2 style="font-size:1.1rem;margin:1.25rem 0 .6rem;color:var(--tea-green-dark)">
+    按园汇总{% if summary.has_filter %} · {{ summary.selected_band }}{% endif %}
+  </h2>
+  <div class="card">
+    {% if summary.rows %}
+    <table class="data">
+      <thead>
+        <tr>
+          <th>茶园</th>
+          <th>海拔带</th>
+          <th>槽数</th>
+          <th>批次数</th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for g in summary.rows %}
+        <tr>
+          <td>{{ g.name }}</td>
+          <td>{{ g.altitudeBand }}</td>
+          <td>{{ g.trough_count }}</td>
+          <td>{{ g.batch_count }}</td>
+        </tr>
+        {% endfor %}
+      </tbody>
+      <tfoot>
+        <tr>
+          <th colspan="2">合计</th>
+          <th>{{ summary.trough_count }}</th>
+          <th>{{ summary.batch_count }}</th>
+        </tr>
+      </tfoot>
+    </table>
+    {% else %}
+    <p class="empty">{% if summary.has_filter %}海拔带「{{ summary.selected_band }}」无匹配茶园，三张对照均为 0。{% else %}暂无茶园。{% endif %}</p>
+    {% endif %}
+  </div>
+</div>
