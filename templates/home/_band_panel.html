@@ -1,0 +1,78 @@
+{# 海拔带对照面板：整页渲染与 HTMX 局部刷新共用本片段，禁止两套口径。 #}
+<form class="filter-bar" method="get" action="{% url 'home' %}">
+  <label for="id-home-band">海拔带（精确匹配）</label>
+  <select id="id-home-band" name="band" class="input"
+          hx-get="{% url 'home' %}"
+          hx-target="#band-panel"
+          hx-swap="innerHTML"
+          hx-trigger="change">
+    {% for value, label in band_choices %}
+    <option value="{{ value }}"{% if value == selected_band %} selected{% endif %}>{{ label }}</option>
+    {% endfor %}
+  </select>
+  <button class="btn btn-sm btn-secondary" type="submit">应用</button>
+  <span class="muted">{% if selected_band %}当前带：{{ selected_band }}{% else %}未选带，统计全库{% endif %}</span>
+</form>
+
+<div class="stats">
+  <div class="stat">
+    <div class="num">{{ garden_count }}</div>
+    <div class="label">{% if selected_band %}该带茶园数{% else %}茶园总数{% endif %}</div>
+  </div>
+  <div class="stat">
+    <div class="num">{{ trough_count }}</div>
+    <div class="label">{% if selected_band %}该带槽总数{% else %}萎凋槽总数{% endif %}</div>
+  </div>
+  <div class="stat">
+    <div class="num">{{ batch_count }}</div>
+    <div class="label">{% if selected_band %}该带批次总数{% else %}萎凋批次总数{% endif %}</div>
+  </div>
+  {% if not selected_band %}
+  <div class="stat"><div class="num">{{ loading_count }}</div><div class="label">装叶中</div></div>
+  <div class="stat"><div class="num">{{ withering_count }}</div><div class="label">萎凋中</div></div>
+  <div class="stat"><div class="num">{{ ready_count }}</div><div class="label">可下槽</div></div>
+  {% endif %}
+</div>
+
+{% if selected_band %}
+<div class="recon-grid">
+  <div class="card">
+    <h3 class="recon-title">按园汇总 · 萎凋槽</h3>
+    <p class="muted recon-sub">共 {{ trough_rows|length }} 个园有槽，合计 {{ trough_count }} 条</p>
+    {% if trough_rows %}
+    <table class="data">
+      <thead><tr><th>茶园</th><th>槽数</th></tr></thead>
+      <tbody>
+        {% for name, num in trough_rows %}
+        <tr><td>{{ name }}</td><td>{{ num }}</td></tr>
+        {% endfor %}
+      </tbody>
+    </table>
+    {% else %}
+    <p class="empty">该带茶园名下暂无萎凋槽。</p>
+    {% endif %}
+  </div>
+  <div class="card">
+    <h3 class="recon-title">按园汇总 · 萎凋批次</h3>
+    <p class="muted recon-sub">共 {{ batch_rows|length }} 个园有批次，合计 {{ batch_count }} 条</p>
+    {% if batch_rows %}
+    <table class="data">
+      <thead><tr><th>茶园</th><th>批次数</th></tr></thead>
+      <tbody>
+        {% for name, num in batch_rows %}
+        <tr><td>{{ name }}</td><td>{{ num }}</td></tr>
+        {% endfor %}
+      </tbody>
+    </table>
+    {% else %}
+    <p class="empty">该带茶园名下暂无萎凋批次。</p>
+    {% endif %}
+  </div>
+</div>
+<p class="muted recon-note">
+  复算口径：该带茶园数 = 茶园列表按本带精确匹配后的行数；槽总数 = Σ按园槽行 = 槽列表按这些园过滤后的行数；
+  批次总数 = Σ按园批次行。三项误差均为 0。槽侧过滤与本卡同源（stats.troughs_for_gardens）。
+</p>
+{% else %}
+<p class="muted" style="margin-top:1rem">选择具体海拔带后，展示该带「茶园数 / 槽总数 / 批次总数」三张对照及按园汇总表；无匹配带时三项均为 0。</p>
+{% endif %}

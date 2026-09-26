@@ -12,6 +12,7 @@ from django.views.generic import (
     UpdateView,
 )
 
+from . import stats
 from .forms import GardenForm, TroughForm, WitherBatchForm
 from .models import Garden, Trough, WitherBatch
 
@@ -22,18 +23,27 @@ def _wants_htmx(request):
 
 @login_required
 def home(request):
-    context = {
-        "garden_count": Garden.objects.count(),
-        "trough_count": Trough.objects.count(),
-        "batch_count": WitherBatch.objects.count(),
-        "ready_count": Trough.objects.filter(status=Trough.STATUS_READY).count(),
-        "withering_count": Trough.objects.filter(
-            status=Trough.STATUS_WITHERING
-        ).count(),
-        "loading_count": Trough.objects.filter(
-            status=Trough.STATUS_LOADING
-        ).count(),
-    }
+    band = request.GET.get("band", stats.ALL_BANDS) or stats.ALL_BANDS
+    context = stats.band_summary(band)
+    # 未选带时保留全库槽位状态概览；选带后只看三张对照卡。
+    if not stats.is_specific_band(band):
+        context.update(
+            {
+                "ready_count": Trough.objects.filter(
+                    status=Trough.STATUS_READY
+                ).count(),
+                "withering_count": Trough.objects.filter(
+                    status=Trough.STATUS_WITHERING
+                ).count(),
+                "loading_count": Trough.objects.filter(
+                    status=Trough.STATUS_LOADING
+                ).count(),
+            }
+        )
+    if _wants_htmx(request):
+        return HttpResponse(
+            render_to_string("home/_band_panel.html", context, request=request)
+        )
     return render(request, "home.html", context)
 
 
@@ -45,16 +55,27 @@ class GardenListView(LoginRequiredMixin, ListView):
     template_name = "gardens/list.html"
     context_object_name = "gardens"
 
+    def get_queryset(self):
+        # 海拔带“精确匹配”：与首页三张对照卡走同一函数。
+        self.selected_band = self.request.GET.get("band", stats.ALL_BANDS)
+        return stats.gardens_in_band(self.selected_band)
+
+    def _table_context(self):
+        return {
+            "gardens": self.object_list,
+            "band_choices": stats.altitude_band_choices(),
+            "selected_band": self.selected_band,
+        }
+
     def get(self, request, *args, **kwargs):
         self.object_list = self.get_queryset()
         if _wants_htmx(request):
             html = render_to_string(
-                "gardens/_table.html",
-                {"gardens": self.object_list},
-                request=request,
+                "gardens/_table.html", self._table_context(), request=request
             )
             return HttpResponse(html)
-        return super().get(request, *args, **kwargs)
+        # 整页渲染也使用同一 context builder，口径与 HTMX 完全一致。
+        return self.render_to_response(self._table_context())
 
 
 class GardenCreateView(LoginRequiredMixin, CreateView):
@@ -101,18 +122,30 @@ class TroughListView(LoginRequiredMixin, ListView):
     context_object_name = "troughs"
 
     def get_queryset(self):
-        return Trough.objects.select_related("garden").all()
+        # 槽侧按园过滤：首页“带内槽总数”与本列表共用
+        # stats.troughs_for_gardens，禁止两套 SQL。
+        self.selected_garden = self.request.GET.get("garden", "")
+        if self.selected_garden.isdigit():
+            garden = Garden.objects.filter(pk=int(self.selected_garden)).first()
+            self.selected_garden = str(garden.pk) if garden else ""
+            return stats.troughs_for_gardens([garden] if garden else [])
+        return stats.troughs_for_gardens(Garden.objects.all())
+
+    def _table_context(self):
+        return {
+            "troughs": self.object_list,
+            "gardens": Garden.objects.all(),
+            "selected_garden": self.selected_garden,
+        }
 
     def get(self, request, *args, **kwargs):
         self.object_list = self.get_queryset()
         if _wants_htmx(request):
             html = render_to_string(
-                "troughs/_table.html",
-                {"troughs": self.object_list},
-                request=request,
+                "troughs/_table.html", self._table_context(), request=request
             )
             return HttpResponse(html)
-        return super().get(request, *args, **kwargs)
+        return self.render_to_response(self._table_context())
 
 
 class TroughCreateView(LoginRequiredMixin, CreateView):

@@ -5,12 +5,28 @@
   <h1>萎凋槽</h1>
   <div class="actions">
     <button class="btn btn-secondary btn-sm"
-            hx-get="{% url 'trough_list' %}"
+            hx-get="{% url 'trough_list' %}{% if selected_garden %}?garden={{ selected_garden }}{% endif %}"
             hx-target="#trough-table"
             hx-swap="innerHTML">刷新列表</button>
     <a class="btn" href="{% url 'trough_create' %}">新建槽位</a>
   </div>
 </div>
+<form class="filter-bar" method="get" action="{% url 'trough_list' %}">
+  <label for="id-trough-garden">按茶园筛选</label>
+  <select id="id-trough-garden" name="garden" class="input"
+          hx-get="{% url 'trough_list' %}"
+          hx-target="#trough-table"
+          hx-include="this"
+          hx-swap="innerHTML"
+          hx-trigger="change">
+    <option value="">全部茶园</option>
+    {% for g in gardens %}
+    <option value="{{ g.pk }}"{% if g.pk|stringformat:"s" == selected_garden %} selected{% endif %}>{{ g.name }}</option>
+    {% endfor %}
+  </select>
+  <button class="btn btn-sm btn-secondary" type="submit">应用</button>
+  <a class="btn btn-sm btn-secondary" href="{% url 'trough_list' %}">清除</a>
+</form>
 <div class="card" id="trough-table">
   {% include "troughs/_table.html" %}
 </div>

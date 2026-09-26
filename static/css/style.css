@@ -295,3 +295,54 @@ table.data tr:hover td {
   text-align: center;
   color: var(--muted);
 }
+
+.filter-bar {
+  display: flex;
+  align-items: center;
+  gap: 0.6rem;
+  flex-wrap: wrap;
+  background: var(--card);
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  padding: 0.7rem 1rem;
+  margin-bottom: 1rem;
+}
+
+.filter-bar label {
+  font-weight: 600;
+  color: var(--tea-green-dark);
+  white-space: nowrap;
+}
+
+.filter-bar .input {
+  width: auto;
+  min-width: 180px;
+}
+
+.list-count {
+  margin: 0 0 0.6rem;
+  font-size: 0.9rem;
+}
+
+.recon-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(320px, 1fr));
+  gap: 1rem;
+  margin-top: 1.25rem;
+}
+
+.recon-title {
+  margin: 0 0 0.25rem;
+  color: var(--tea-green-dark);
+  font-size: 1.05rem;
+}
+
+.recon-sub {
+  margin: 0 0 0.75rem;
+  font-size: 0.85rem;
+}
+
+.recon-note {
+  margin-top: 0.9rem;
+  font-size: 0.85rem;
+}

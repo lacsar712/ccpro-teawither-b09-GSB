@@ -5,12 +5,27 @@
   <h1>茶园</h1>
   <div class="actions">
     <button class="btn btn-secondary btn-sm"
-            hx-get="{% url 'garden_list' %}"
+            hx-get="{% url 'garden_list' %}{% if selected_band %}?band={{ selected_band }}{% endif %}"
             hx-target="#garden-table"
             hx-swap="innerHTML">刷新列表</button>
     <a class="btn" href="{% url 'garden_create' %}">新建茶园</a>
   </div>
 </div>
+<form class="filter-bar" method="get" action="{% url 'garden_list' %}">
+  <label for="id-garden-band">海拔带（精确匹配）</label>
+  <select id="id-garden-band" name="band" class="input"
+          hx-get="{% url 'garden_list' %}"
+          hx-target="#garden-table"
+          hx-include="this"
+          hx-swap="innerHTML"
+          hx-trigger="change">
+    {% for value, label in band_choices %}
+    <option value="{{ value }}"{% if value == selected_band %} selected{% endif %}>{{ label }}</option>
+    {% endfor %}
+  </select>
+  <button class="btn btn-sm btn-secondary" type="submit">应用</button>
+  <a class="btn btn-sm btn-secondary" href="{% url 'garden_list' %}">清除</a>
+</form>
 <div class="card" id="garden-table">
   {% include "gardens/_table.html" %}
 </div>
